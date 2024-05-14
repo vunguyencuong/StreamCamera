@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.SurfaceView
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -14,6 +15,7 @@ import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.AspectRatio
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -35,6 +37,7 @@ import java.io.File
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.log
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,8 +45,6 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var stickerView: StickerView
 //    lateinit var stickerContainer: FrameLayout
-
-    private lateinit var previewView : PreviewView
     private var cameraFacing = CameraSelector.LENS_FACING_BACK
 
 
@@ -58,32 +59,45 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 //        stickerView = binding.stickerView
-        previewView = binding.cameraPreview
-        if(ContextCompat.checkSelfPermission(applicationContext,android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
-            activityResultLauncher.launch(android.Manifest.permission.CAMERA)
-        } else {
-            startCamera(cameraFacing)
-        }
-        binding.btnSwitch.setOnClickListener {
-            if(cameraFacing == CameraSelector.LENS_FACING_BACK){
-                cameraFacing = CameraSelector.LENS_FACING_FRONT
-            } else{
-                cameraFacing = CameraSelector.LENS_FACING_BACK
+
+        binding.cameraPreview.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                // Chỉ gọi startCamera sau khi layout đã được hoàn thành
+                binding.cameraPreview.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                    activityResultLauncher.launch(android.Manifest.permission.CAMERA)
+                    Log.d("open camera", "onCreate: permission")
+                } else {
+                    startCamera(cameraFacing)
+                    Log.d("open camera", "onCreate: start camera")
+                }
             }
+        })
+        binding.btnSwitch.setOnClickListener {
+            cameraFacing = if (cameraFacing == CameraSelector.LENS_FACING_BACK) {
+                CameraSelector.LENS_FACING_FRONT
+            } else {
+                CameraSelector.LENS_FACING_BACK
+            }
+            Log.d("open camera", "onCreate: $cameraFacing")
             startCamera(cameraFacing)
         }
     }
 
     private val activityResultLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
         if (isGranted) {
+            Log.d("open camera", ": accept")
             startCamera(cameraFacing)
         } else {
             // Xử lý khi quyền bị từ chối
+            Log.d("open camera", ": deny")
         }
     }
 
     private  fun startCamera(cameraFacing : Int){
-        val aspectRatio  = aspectRatio(previewView.width,previewView.height)
+        Log.d("open camera", "startCamera: ")
+        val aspectRatio  = aspectRatio(binding.cameraPreview.width,binding.cameraPreview.height)
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         val listenableFuture : ListenableFuture<ProcessCameraProvider> = ProcessCameraProvider.getInstance(this)
         listenableFuture.addListener({
             try {
@@ -98,7 +112,7 @@ class MainActivity : AppCompatActivity() {
 
                 cameraProvider.unbindAll()
 
-                val camera = cameraProvider.bindToLifecycle(this, cameraSelector,preview,imageCapture)
+//                val camera = cameraProvider.bindToLifecycle(this, cameraSelector,preview,imageCapture)
 
                 binding.btnCapture.setOnClickListener {
                     if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -107,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                     takePicture(imageCapture)
                 }
 
-                preview.setSurfaceProvider(previewView.surfaceProvider)
+                preview.setSurfaceProvider(binding.cameraPreview.surfaceProvider)
             } catch (e: ExecutionException){
                 e.printStackTrace()
             } catch (e: InterruptedException){
@@ -138,6 +152,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun aspectRatio(width: Int, height: Int) : Int{
+        if (width == 0 || height == 0) {
+            // Trả về một tỉ lệ mặc định nếu width hoặc height là 0
+            return AspectRatio.RATIO_4_3
+        }
         val previewRatio = (Math.max(width,height) / Math.min(width,height)).toDouble()
         if(Math.abs(previewRatio-4.0/3.0) <= Math.abs(previewRatio-16.0/9.0)){
             return AspectRatio.RATIO_4_3
