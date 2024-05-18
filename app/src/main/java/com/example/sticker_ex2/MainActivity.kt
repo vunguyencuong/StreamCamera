@@ -44,7 +44,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding : ActivityMainBinding
 
     lateinit var stickerView: StickerView
-//    lateinit var stickerContainer: FrameLayout
     private var cameraFacing = CameraSelector.LENS_FACING_BACK
 
 
@@ -58,7 +57,7 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-//        stickerView = binding.stickerView
+        stickerView = binding.stickerView
 
         binding.cameraPreview.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
@@ -97,14 +96,13 @@ class MainActivity : AppCompatActivity() {
     private  fun startCamera(cameraFacing : Int){
         Log.d("open camera", "startCamera: ")
         val aspectRatio  = aspectRatio(binding.cameraPreview.width,binding.cameraPreview.height)
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        val processCameraProvider = ProcessCameraProvider.getInstance(this)
         val listenableFuture : ListenableFuture<ProcessCameraProvider> = ProcessCameraProvider.getInstance(this)
-        listenableFuture.addListener({
+        processCameraProvider.addListener({
             try {
-                val cameraProvider = listenableFuture.get()as ProcessCameraProvider
-
+                val cameraProvider = processCameraProvider.get()
                 val preview = Preview.Builder().setTargetAspectRatio(aspectRatio).build()
-
+                preview.setSurfaceProvider(binding.cameraPreview.surfaceProvider)
                 val imageCapture = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .setTargetRotation(windowManager.defaultDisplay.rotation).build()
                 val cameraSelector = CameraSelector.Builder()
@@ -112,7 +110,7 @@ class MainActivity : AppCompatActivity() {
 
                 cameraProvider.unbindAll()
 
-//                val camera = cameraProvider.bindToLifecycle(this, cameraSelector,preview,imageCapture)
+                cameraProvider.bindToLifecycle(this, cameraSelector,preview)
 
                 binding.btnCapture.setOnClickListener {
                     if (ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -121,7 +119,6 @@ class MainActivity : AppCompatActivity() {
                     takePicture(imageCapture)
                 }
 
-                preview.setSurfaceProvider(binding.cameraPreview.surfaceProvider)
             } catch (e: ExecutionException){
                 e.printStackTrace()
             } catch (e: InterruptedException){
@@ -163,26 +160,26 @@ class MainActivity : AppCompatActivity() {
         return AspectRatio.RATIO_16_9
     }
 
-//    override fun onStart() {
-//        super.onStart()
-//
-//        // Tạo một hình ảnh (Drawable) từ tài nguyên drawable
-//        val pandaImage = ContextCompat.getDrawable(this, R.drawable.panda)
-//
-//        // Kiểm tra xem pandaImage có null hay không trước khi tiếp tục
-//        pandaImage?.let {
-//            // Tạo một hình chữ nhật để đặt kích thước cho hình ảnh
-//            val rect = Rect(0, 0, it.intrinsicWidth, it.intrinsicHeight)
-//
-//            // Gắn hình chữ nhật vào hình ảnh
-//            it.bounds = rect
-//
-//            // Tạo một sticker từ hình ảnh
-//            val sticker: Sticker = DrawableSticker(it)
-//
-//            // Thêm sticker vào stickerView
-//            stickerView.addSticker(sticker)
-//
-//        }
-//    }
+    override fun onStart() {
+        super.onStart()
+
+        // Tạo một hình ảnh (Drawable) từ tài nguyên drawable
+        val pandaImage = ContextCompat.getDrawable(this, R.drawable.panda)
+
+        // Kiểm tra xem pandaImage có null hay không trước khi tiếp tục
+        pandaImage?.let {
+            // Tạo một hình chữ nhật để đặt kích thước cho hình ảnh
+            val rect = Rect(0, 0, it.intrinsicWidth, it.intrinsicHeight)
+
+            // Gắn hình chữ nhật vào hình ảnh
+            it.bounds = rect
+
+            // Tạo một sticker từ hình ảnh
+            val sticker: Sticker = DrawableSticker(it)
+
+            // Thêm sticker vào stickerView
+            stickerView.addSticker(sticker)
+
+        }
+    }
 }
