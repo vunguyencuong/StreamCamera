@@ -60,5 +60,5 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.3")
     implementation("androidx.camera:camera-view:1.3.3")
 
-    implementation ("com.github.mukeshsolanki:DrawingView-Android:1.0.12")
+//    implementation ("com.github.mukeshsolanki:DrawingView-Android:1.0.12")
 }

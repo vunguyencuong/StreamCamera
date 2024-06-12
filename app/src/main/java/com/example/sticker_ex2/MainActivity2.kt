@@ -21,7 +21,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.sticker_ex2.databinding.ActivityMain2Binding
-import com.mukesh.DrawingView
 import kotlin.math.log
 
 class MainActivity2 : AppCompatActivity() {
@@ -88,7 +87,7 @@ class MainActivity2 : AppCompatActivity() {
     private fun initDrawView(){
 //        binding.scratchPad.initializePen()
         binding.scratchPad.setBackgroundColor(Color.TRANSPARENT)
-        binding.scratchPad.penColor = Color.BLUE
+        binding.scratchPad.setPenColor(Color.BLUE)
         binding.scratchPad.penSize = 0.0F
         binding.scratchPad.eraserSize = 0.0F
     }
