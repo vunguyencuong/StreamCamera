@@ -2,6 +2,7 @@ package com.example.sticker_ex2
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 
 import android.graphics.Bitmap
@@ -142,6 +143,11 @@ class MainActivity : AppCompatActivity() {
             takePicture()
         }
 
+        binding.btnNext.setOnClickListener {
+            val intent = Intent(this,MainActivity2::class.java)
+            startActivity(intent)
+        }
+
     }
 
 
@@ -166,6 +172,7 @@ class MainActivity : AppCompatActivity() {
             ).apply {
                 if(Build.VERSION.SDK_INT <= Build.VERSION_CODES.P){
                     add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
                 }
             }.toTypedArray()
 
@@ -307,5 +314,7 @@ class MainActivity : AppCompatActivity() {
             e.printStackTrace()
         }
     }
+
+
 
 }
