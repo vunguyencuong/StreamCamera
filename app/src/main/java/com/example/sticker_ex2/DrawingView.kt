@@ -18,14 +18,16 @@ import java.io.FileOutputStream
 import java.io.IOException
 
 class DrawingView @JvmOverloads constructor(
-    context: Context, attrs: AttributeSet? = null, defStyle:Int = 0
-) : View(context,attrs,defStyle) {
+    context: Context, attrs: AttributeSet? = null, defStyle: Int = 0
+) : View(context, attrs, defStyle) {
 
     private val TOUCH_TOLERANCE = 4f
     private var bitmap: Bitmap? = null
     private var canvas: Canvas? = null
     private var path: Path = Path()
     private var bitmapPaint: Paint = Paint(Paint.DITHER_FLAG)
+    private var canvasDraw: Canvas = Canvas()
+    private var bitmapDraw: Bitmap? = null
     private var drawPaint: Paint = Paint()
     private var erasePaint: Paint = Paint()
     private var drawMode: Boolean = true
@@ -65,14 +67,16 @@ class DrawingView @JvmOverloads constructor(
         if (bitmap == null) {
             bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         }
-        canvas = Canvas(bitmap!!)
-        canvas?.drawColor(Color.TRANSPARENT)
+        if (bitmapDraw == null) {
+            bitmapDraw = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        }
+        canvas = Canvas(bitmap!!.copy(Bitmap.Config.ARGB_8888, true))
+        canvasDraw = Canvas(bitmapDraw!!)
     }
 
     override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        canvas.drawBitmap(bitmap!!, 0f, 0f, bitmapPaint)
-        canvas.drawPath(path, if (drawMode) drawPaint else erasePaint)
+        canvas.drawBitmap(bitmap!!.copy(Bitmap.Config.ARGB_8888, true), 0f, 0f, bitmapPaint)
+        canvas.drawBitmap(bitmapDraw!!, 0f, 0f, bitmapPaint)
     }
 
     private fun touchStart(x: Float, y: Float) {
@@ -80,7 +84,7 @@ class DrawingView @JvmOverloads constructor(
         path.moveTo(x, y)
         this.x = x
         this.y = y
-        canvas?.drawPath(path, if (drawMode) drawPaint else erasePaint)
+        canvasDraw.drawPath(path, if (drawMode) drawPaint else erasePaint)
     }
 
     private fun touchMove(x: Float, y: Float) {
@@ -91,12 +95,12 @@ class DrawingView @JvmOverloads constructor(
             this.x = x
             this.y = y
         }
-        canvas?.drawPath(path, if (drawMode) drawPaint else erasePaint)
+        canvasDraw.drawPath(path, if (drawMode) drawPaint else erasePaint)
     }
 
     private fun touchUp() {
         path.lineTo(x, y)
-        canvas?.drawPath(path, if (drawMode) drawPaint else erasePaint)
+        canvasDraw.drawPath(path, if (drawMode) drawPaint else erasePaint)
         path.reset()
     }
 
@@ -108,10 +112,12 @@ class DrawingView @JvmOverloads constructor(
                 touchStart(x, y)
                 invalidate()
             }
+
             MotionEvent.ACTION_MOVE -> {
                 touchMove(x, y)
                 invalidate()
             }
+
             MotionEvent.ACTION_UP -> {
                 touchUp()
                 invalidate()

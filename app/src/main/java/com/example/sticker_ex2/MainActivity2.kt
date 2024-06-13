@@ -5,29 +5,32 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.ColorInt
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.sticker_ex2.databinding.ActivityMain2Binding
-import kotlin.math.log
+import com.xiaopo.flying.sticker.BuildConfig
 
 class MainActivity2 : AppCompatActivity() {
 
     private lateinit var binding: ActivityMain2Binding
     private val PERMISSION_REQUEST_CODE = 100
     private val IMAGE_PICK_CODE = 101
+
+    private val photoPermissionRequester = PhotoPermissionRequester()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -46,7 +49,7 @@ class MainActivity2 : AppCompatActivity() {
         }
 
         binding.seekBarPenSize.setOnSeekBarChangeListener(
-            object : SeekBar.OnSeekBarChangeListener{
+            object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
                     binding.scratchPad.penSize = p0!!.progress.toFloat()
                 }
@@ -65,7 +68,7 @@ class MainActivity2 : AppCompatActivity() {
 
 
         binding.seekBarEraseSize.setOnSeekBarChangeListener(
-            object : SeekBar.OnSeekBarChangeListener{
+            object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
                     binding.scratchPad.eraserSize = p0!!.progress.toFloat()
                 }
@@ -84,7 +87,7 @@ class MainActivity2 : AppCompatActivity() {
 
     }
 
-    private fun initDrawView(){
+    private fun initDrawView() {
 //        binding.scratchPad.initializePen()
         binding.scratchPad.setBackgroundColor(Color.TRANSPARENT)
         binding.scratchPad.setPenColor(Color.BLUE)
@@ -92,18 +95,19 @@ class MainActivity2 : AppCompatActivity() {
         binding.scratchPad.eraserSize = 0.0F
     }
 
-    private fun openGallery(){
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED) {
-            Log.d("Upload", "openGallery: ")
-            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
-        } else {
+    private fun openGallery() {
+        if (photoPermissionRequester.isGranted()) {
             Log.d("Upload", "openGallery: pick image")
             pickImageFromGallery()
+        } else {
+            photoPermissionRequester.requestPermission{
+                Log.d("Upload", "openGallery: pick image")
+                pickImageFromGallery()
+            }
         }
     }
 
-    private fun pickImageFromGallery(){
+    private fun pickImageFromGallery() {
         binding.btnUploadPhoto.visibility = View.GONE
         Log.d("Upload", "pickImageFromGallery: pick iamge")
         val intent = Intent(Intent.ACTION_PICK)
@@ -111,7 +115,11 @@ class MainActivity2 : AppCompatActivity() {
         startActivityForResult(intent, IMAGE_PICK_CODE)
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             pickImageFromGallery()
@@ -127,7 +135,8 @@ class MainActivity2 : AppCompatActivity() {
             imageUri?.let {
                 val inputStream = contentResolver.openInputStream(it)
                 val bitmap = BitmapFactory.decodeStream(inputStream)
-                val scaledBitmap = getScaledBitmap(bitmap, binding.scratchPad.width, binding.scratchPad.height)
+                val scaledBitmap =
+                    getScaledBitmap(bitmap, binding.scratchPad.width, binding.scratchPad.height)
                 binding.scratchPad.loadImage(scaledBitmap)
             }
         }
@@ -142,5 +151,74 @@ class MainActivity2 : AppCompatActivity() {
         return Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, true)
     }
 
+    inner class PhotoPermissionRequester {
+        private var onGranted: (() -> Unit)? = null
 
+        private val requestPermissionLauncher =
+            registerForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { isGranted: Boolean ->
+                if (isGranted) {
+                    onGranted?.invoke()
+                } else {
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(
+                            this@MainActivity2,
+                            android.Manifest.permission.READ_EXTERNAL_STORAGE
+                        )
+                    ) {
+                        AlertDialog.Builder(this@MainActivity2)
+                            .setTitle("Permission needed")
+                            .setMessage("This permission is needed because of this and that")
+                            .setPositiveButton("OK") { dialog, which ->
+                                requestPermission()
+                            }
+                            .setNegativeButton("Cancel") { dialog, which ->
+                                dialog.dismiss()
+                            }
+                            .create()
+                            .show()
+                    } else {
+                        AlertDialog.Builder(this@MainActivity2)
+                            .setTitle("Permission needed")
+                            .setMessage("You have denied the permission. Please go to settings to enable the permission")
+                            .setPositiveButton("OK") { dialog, which ->
+                                Intent().apply {
+                                    action =
+                                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                    data = android.net.Uri.fromParts(
+                                        "package",
+                                        BuildConfig.APPLICATION_ID,
+                                        null
+                                    )
+                                    startActivity(this)
+                                }
+                            }
+                            .setNegativeButton("Cancel") { dialog, which ->
+                                dialog.dismiss()
+                            }
+                            .create()
+                            .show()
+                    }
+                }
+            }
+
+        val photoPermission by lazy {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                android.Manifest.permission.READ_MEDIA_IMAGES
+            else android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        fun isGranted(): Boolean {
+            return ContextCompat.checkSelfPermission(
+                this@MainActivity2,
+                photoPermission
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+        fun requestPermission(onGranted: (() -> Unit)? = null) {
+            this.onGranted = onGranted
+            requestPermissionLauncher.launch(
+                photoPermission
+            )
+        }
+    }
 }
+
