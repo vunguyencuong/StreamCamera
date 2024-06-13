@@ -16,6 +16,7 @@ import androidx.annotation.ColorInt
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import kotlin.math.log
 
 class DrawingView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyle:Int = 0
@@ -26,8 +27,7 @@ class DrawingView @JvmOverloads constructor(
     private var canvas: Canvas? = null
     private var path: Path = Path()
     private var bitmapPaint: Paint = Paint(Paint.DITHER_FLAG)
-    private var drawPaint: Paint = Paint()
-    private var erasePaint: Paint = Paint()
+    private var paint: Paint = Paint()
     private var drawMode: Boolean = true
     private var x = 0f
     private var y = 0f
@@ -39,25 +39,17 @@ class DrawingView @JvmOverloads constructor(
     }
 
     private fun init() {
-        // Thiết lập cho drawPaint
-        drawPaint.isAntiAlias = true
-        drawPaint.isDither = true
-        drawPaint.color = getPenColor()
-        drawPaint.style = Paint.Style.STROKE
-        drawPaint.strokeJoin = Paint.Join.ROUND
-        drawPaint.strokeCap = Paint.Cap.ROUND
-        drawPaint.strokeWidth = penSize
-        drawPaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
-
-        // Thiết lập cho erasePaint
-        erasePaint.isAntiAlias = true
-        erasePaint.isDither = true
-        erasePaint.color = Color.TRANSPARENT
-        erasePaint.style = Paint.Style.STROKE
-        erasePaint.strokeJoin = Paint.Join.ROUND
-        erasePaint.strokeCap = Paint.Cap.ROUND
-        erasePaint.strokeWidth = eraserSize
-        erasePaint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+        paint.isAntiAlias = true
+        paint.isDither = true
+        paint.color = Color.BLACK
+        paint.style = Paint.Style.STROKE
+        paint.strokeJoin = Paint.Join.ROUND
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeWidth = penSize
+        drawMode = true
+        paint.setXfermode(null)
+        paint.shader = null
+        paint.maskFilter = null
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -72,7 +64,7 @@ class DrawingView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawBitmap(bitmap!!, 0f, 0f, bitmapPaint)
-        canvas.drawPath(path, if (drawMode) drawPaint else erasePaint)
+        canvas.drawPath(path, paint)
     }
 
     private fun touchStart(x: Float, y: Float) {
@@ -80,7 +72,7 @@ class DrawingView @JvmOverloads constructor(
         path.moveTo(x, y)
         this.x = x
         this.y = y
-        canvas?.drawPath(path, if (drawMode) drawPaint else erasePaint)
+        canvas?.drawPath(path, paint)
     }
 
     private fun touchMove(x: Float, y: Float) {
@@ -91,13 +83,21 @@ class DrawingView @JvmOverloads constructor(
             this.x = x
             this.y = y
         }
-        canvas?.drawPath(path, if (drawMode) drawPaint else erasePaint)
+        canvas?.drawPath(path, paint)
     }
 
     private fun touchUp() {
         path.lineTo(x, y)
-        canvas?.drawPath(path, if (drawMode) drawPaint else erasePaint)
+        canvas?.drawPath(path, paint)
         path.reset()
+        if(drawMode){
+            paint.setXfermode(null)
+            paint.shader = null
+            paint.maskFilter = null
+        } else {
+            paint.color = Color.TRANSPARENT
+            paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.CLEAR))
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -105,11 +105,25 @@ class DrawingView @JvmOverloads constructor(
         val y = event.y
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                if (!drawMode) {
+                    paint.color = Color.TRANSPARENT
+                    paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.CLEAR))
+                } else {
+                    paint.setXfermode(null)
+                    paint.shader = null
+                    paint.maskFilter = null
+                }
                 touchStart(x, y)
                 invalidate()
             }
             MotionEvent.ACTION_MOVE -> {
                 touchMove(x, y)
+                if(!drawMode){
+                    path.lineTo(this.x,this.y)
+                    path.reset()
+                    path.moveTo(x,y)
+                }
+                canvas!!.drawPath(path,paint)
                 invalidate()
             }
             MotionEvent.ACTION_UP -> {
@@ -121,13 +135,27 @@ class DrawingView @JvmOverloads constructor(
     }
 
     fun initializePen() {
+        Log.d("Paint", "initializePen: draw")
         drawMode = true
-        drawPaint.strokeWidth = penSize
+        paint.isAntiAlias = true
+        paint.isDither = true
+        paint.color = Color.RED
+        paint.style = Paint.Style.STROKE
+        paint.strokeJoin = Paint.Join.ROUND
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeWidth = penSize
+        paint.setXfermode(null)
+        paint.shader = null
+        paint.maskFilter = null
     }
 
     fun initializeEraser() {
+        Log.d("Paint", "initializeEraser: erase")
         drawMode = false
-        erasePaint.strokeWidth = eraserSize
+        paint.color = Color.TRANSPARENT
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = eraserSize
+        paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.CLEAR))
     }
 
     fun clear() {
@@ -145,11 +173,11 @@ class DrawingView @JvmOverloads constructor(
 
 
     fun setPenColor(@ColorInt color: Int) {
-        drawPaint.color = color
+        paint.color = color
     }
 
     fun getPenColor(): Int {
-        return drawPaint.color
+        return paint.color
     }
 
 //    fun loadImage(bitmap: Bitmap) {
